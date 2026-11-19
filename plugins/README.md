@@ -1,3 +1,3 @@
 # Plugins
 
-The original bot's Telegram handlers remain inside root `bot.py` unchanged, as requested. This directory is reserved for future organization only. No extracted handler modules are loaded.
+The original Telegram plugin handlers are defined in `bot.py` and remain there unchanged. No separate plugin Python files existed to move from the current production layout. This directory is reserved for any future standalone plugin files.
