@@ -1,5 +1,6 @@
 """Register handlers in the exact order used by the original monolith."""
-from core import bot
+import core
+from core import bot, filters
 from plugins import admin
 from plugins import search
 from plugins import indexing
@@ -59,3 +60,9 @@ bot.on_message(filters.command('stats') & filters.private)(delivery.stats)
 bot.on_message(filters.command('index') & filters.private)(indexing.index_command)
 bot.on_callback_query(filters.regex(r'^im:'))(indexing.index_manager_callback)
 bot.on_message(filters.command('progress') & filters.private)(indexing.progress)
+
+# Preserve references between handlers and core helpers after extraction.
+for _module in (admin, search, indexing, menus, delivery):
+    for _name, _value in vars(_module).items():
+        if callable(_value) and getattr(_value, '__module__', None) == _module.__name__:
+            setattr(core, _name, _value)
