@@ -1,4 +1,5 @@
 """Samantha indexing handlers. Shared state and helpers live in core."""
+import core
 from core import *
 
 
@@ -97,7 +98,7 @@ async def index_manager_callback(_, q):
         )
 
     if action == "start":
-        if not history:
+        if not core.history:
             return await q.answer(
                 "USER_SESSION is not configured",
                 show_alert=True
