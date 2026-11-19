@@ -162,6 +162,27 @@ sleep 5
 sudo systemctl status autofilter.service --no-pager -l
 ```
 
+### 8. Stop the bot and back up its old session
+
+```bash
+cd /root/DR-DOOM-AutoFilter-Bot-
+
+sudo systemctl stop autofilter.service
+
+mkdir -p session_backup
+
+cp -a autofilter_bot.session* session_backup/
+```
+### 9. Remove the old session from the active directory
+
+```bash
+rm -f autofilter_bot.session
+rm -f autofilter_bot.session-journal
+rm -f autofilter_bot.session-wal
+rm -f autofilter_bot.session-shm
+```
+
+
 > The included service may reference `/opt/autofilter_bot`; adjust `WorkingDirectory` and `ExecStart` if you cloned elsewhere. Do not run a second instance with the same bot token.
 
 ## 🤖 Commands
