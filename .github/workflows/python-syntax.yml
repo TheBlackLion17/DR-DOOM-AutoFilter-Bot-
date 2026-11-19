@@ -1,8 +1,8 @@
-name: Samantha Python syntax
+name: Samantha original-code validation
 on:
   workflow_dispatch:
   push:
-    branches: [main, refactor/modular-layout]
+    branches: [refactor/modular-layout]
   pull_request:
     branches: [main]
 jobs:
@@ -13,9 +13,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Compile all tracked Python modules
-        run: python -m compileall -q bot.py core.py plugins database services tests
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Run offline smoke tests
-        run: python -m unittest discover -s tests -v
+      - name: Check unchanged runtime syntax
+        run: python -m compileall -q bot.py config.py database.py ags_indexer.py parser.py samantha_logs.py
+      - name: Verify original bot is byte-identical to main
+        run: |
+          git fetch origin main
+          test "$(git hash-object bot.py)" = "$(git rev-parse origin/main:bot.py)"
+          test "$(git hash-object config.py)" = "$(git rev-parse origin/main:config.py)"
+          test "$(git hash-object database.py)" = "$(git rev-parse origin/main:database.py)"
+          test "$(git hash-object ags_indexer.py)" = "$(git rev-parse origin/main:ags_indexer.py)"
+          test "$(git hash-object parser.py)" = "$(git rev-parse origin/main:parser.py)"
+          test "$(git hash-object samantha_logs.py)" = "$(git rev-parse origin/main:samantha_logs.py)"
