@@ -1,6 +1,11 @@
 """Offline structural smoke tests for Samantha's modular import graph."""
 import os
 import unittest
+import asyncio
+
+# Pyrogram 2.0.106 resolves a current event loop during module import.
+# This test imports the bot without starting Telegram or MySQL.
+asyncio.set_event_loop(asyncio.new_event_loop())
 
 os.environ.update({
     "API_ID": "12345",
