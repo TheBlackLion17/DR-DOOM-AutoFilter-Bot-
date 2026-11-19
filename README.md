@@ -1,6 +1,6 @@
 <div align="center">
 
-![DR. DOOM — Telegram AutoFilter Bot](assets/dr-doom-banner.png)
+![DR. DOOM — Telegram AutoFilter Bot](assets/17f4023b375b83f96bc811eac94e1e21%20(1).jpg)
 
 # ⚡ DR. DOOM
 ### Telegram Movies & Series AutoFilter Bot
@@ -65,8 +65,8 @@ Source Telegram channel
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
-cd YOUR_REPOSITORY
+git clone https://github.com/TheBlackLion17/DR-DOOM-AutoFilter-Bot.git
+cd DR-DOOM-AutoFilter-Bot
 ```
 
 ### 2. Install Python dependencies
