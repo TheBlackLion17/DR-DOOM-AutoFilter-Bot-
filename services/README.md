@@ -1,3 +1,3 @@
 # Services
 
-Planned modules: `ags_indexer.py`, `parser.py`, `logging.py`. These are currently at repository root. Move them only when imports and runtime integration are updated and tested.
+The working `ags_indexer.py`, `parser.py`, and `samantha_logs.py` remain at the root so the original unchanged `bot.py` can import them. This folder is reserved for documentation and future optional migrations.
