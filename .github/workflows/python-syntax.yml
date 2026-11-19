@@ -13,4 +13,8 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile all tracked Python modules
-        run: python -m compileall -q bot.py core.py plugins database.py ags_indexer.py parser.py samantha_logs.py
+        run: python -m compileall -q bot.py core.py plugins database services tests
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run offline smoke tests
+        run: python -m unittest discover -s tests -v
