@@ -1,34 +1,18 @@
-# Samantha AutoFilter — modularization (PR #2)
+# Samantha AutoFilter — layout-only PR #2
 
-## Current development layout
+The user's requirement is to keep the **original production `bot.py` unchanged**, including all functions, handlers, messages and names. The file in this branch was restored from `main` with the same Git blob SHA.
 
-- `bot.py`: entry point, imports `plugins.register` before startup.
-- `core.py`: shared state, helpers, lifecycle and compatibility layer. **Not fully decomposed yet.**
-- `plugins/`: extracted Telegram handlers. `start.py`, `settings.py`, and `filters.py` currently expose compatibility wrappers around existing implementations.
-- `database/connection.py`: active MySQL connection and existing schema. `models.py` and `queries.py` are scaffolding/compatibility layers.
-- `services/`: active parser, AGS indexer and Telegram operational logging.
-- `tests/test_modular_smoke.py`: offline import, handler and parser checks.
+The current Python runtime imports `database.py`, `ags_indexer.py`, `parser.py` and `samantha_logs.py` from the repository root. They remain in place, unchanged. Moving them would require changing import paths in the original `bot.py`, contrary to the requested no-code-change constraint.
 
-## Local validation (does not connect to Telegram or MySQL)
+The folders `plugins/`, `services/`, `assets/`, `utils/`, and `database_layer/` are organizational/documentation placeholders only. They are **not** replacement runtime packages. In particular, do not create a root `database/` Python package while the original `database.py` remains in use: Python import resolution could break the original bot.
+
+To get a fully modular folder layout, explicit permission to modify imports and split code would be necessary. This PR intentionally does not do that.
+
+## Validation
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python -m compileall -q bot.py core.py plugins database services tests
+python -m compileall -q bot.py config.py database.py ags_indexer.py parser.py samantha_logs.py
 python -m unittest discover -s tests -v
 ```
 
-The smoke tests supply dummy environment values only in the test process; do not use production credentials for testing. A successful offline test is **not** proof of live behavior.
-
-## Staging validation checklist
-
-1. Use a separate test bot token and separate MySQL database. Do not run another process with the production bot token.
-2. Confirm startup and shutdown, `/start`, forced subscription and verification.
-3. Confirm search, pagination, deep-link navigation and private-only file delivery.
-4. Confirm automatic deletion after the configured timeout.
-5. Confirm admin management, welcome settings, live channel indexing and resumable scans.
-6. Confirm Telegram operational logs, permissions, and error handling.
-7. Only after tests pass, remove obsolete root-level duplicate files and compatibility wrappers.
-
-**Safety:** PR #2 is not ready to merge or deploy. The live VPS and `main` branch are unaffected. Never commit `.env`, Telegram session strings/files or MySQL dumps.
+Never deploy or merge without verifying the original runtime. No Telegram token, MySQL data, VPS files or production branch were changed by this layout-only cleanup.
