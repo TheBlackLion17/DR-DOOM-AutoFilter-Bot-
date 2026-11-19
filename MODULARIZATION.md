@@ -1,18 +1,34 @@
-# Samantha AutoFilter — layout-only PR #2
+# Samantha AutoFilter — folder organization (PR #2)
 
-The user's requirement is to keep the **original production `bot.py` unchanged**, including all functions, handlers, messages and names. The file in this branch was restored from `main` with the same Git blob SHA.
+The original implementation is preserved. This is a file move, **not** a modular rewrite.
 
-The current Python runtime imports `database.py`, `ags_indexer.py`, `parser.py` and `samantha_logs.py` from the repository root. They remain in place, unchanged. Moving them would require changing import paths in the original `bot.py`, contrary to the requested no-code-change constraint.
+## Active runtime layout
 
-The folders `plugins/`, `services/`, `assets/`, `utils/`, and `database_layer/` are organizational/documentation placeholders only. They are **not** replacement runtime packages. In particular, do not create a root `database/` Python package while the original `database.py` remains in use: Python import resolution could break the original bot.
-
-To get a fully modular folder layout, explicit permission to modify imports and split code would be necessary. This PR intentionally does not do that.
-
-## Validation
-
-```bash
-python -m compileall -q bot.py config.py database.py ags_indexer.py parser.py samantha_logs.py
-python -m unittest discover -s tests -v
+```text
+bot.py
+config.py
+database/
+  __init__.py
+  database.py
+services/
+  __init__.py
+  ags_indexer.py
+  parser.py
+  samantha_logs.py
+plugins/
+  README.md
+assets/
+  README.md
+utils/
+  README.md
+requirements.txt
+README.md
 ```
 
-Never deploy or merge without verifying the original runtime. No Telegram token, MySQL data, VPS files or production branch were changed by this layout-only cleanup.
+The original source contents of `database.py`, `ags_indexer.py`, `parser.py`, and `samantha_logs.py` were copied byte-for-byte into their category folders. `database/__init__.py` preserves the `import database as db` API used by the original bot and indexer. The only edits to `bot.py` are three import paths pointing to `services/`. All handlers, messages, functions, SQL, settings, and bot identity remain unchanged.
+
+The `plugins/` folder is a placeholder because the original handlers are inside `bot.py`; extracting them would change the original file, contrary to the user's request.
+
+## Verification
+
+GitHub Actions compiles the new layout and compares the moved source bytes with `main`, and checks that `bot.py` differs only in the three required import lines. Live Telegram/MySQL testing has **not** been performed. Do not deploy until a staging run passes.
