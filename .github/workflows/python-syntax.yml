@@ -1,0 +1,45 @@
+name: Samantha folder organization validation
+on:
+  workflow_dispatch:
+  push:
+    branches: [refactor/modular-layout]
+  pull_request:
+    branches: [main]
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile organized modules
+        run: python -m compileall -q bot.py config.py database services
+      - name: Verify original code is preserved
+        run: |
+          git fetch origin main
+          python - <<'PY'
+          import ast, pathlib, subprocess
+          paths = {
+              "database.py": "database/database.py",
+              "ags_indexer.py": "services/ags_indexer.py",
+              "parser.py": "services/parser.py",
+              "samantha_logs.py": "services/samantha_logs.py",
+          }
+          for original, moved in paths.items():
+              before = subprocess.check_output(["git", "show", f"origin/main:{original}"])
+              after = pathlib.Path(moved).read_bytes()
+              assert before == after, f"Moved file changed: {original}"
+          original = subprocess.check_output(["git", "show", "origin/main:bot.py"]).decode()
+          current = pathlib.Path("bot.py").read_text()
+          expected = (original
+              .replace("import ags_indexer\n", "from services import ags_indexer\n", 1)
+              .replace("import samantha_logs as slog\n", "from services import samantha_logs as slog\n", 1)
+              .replace("from parser import parse_name\n", "from services.parser import parse_name\n", 1))
+          assert current == expected, "bot.py changed beyond necessary import paths"
+          assert pathlib.Path("database/__init__.py").read_bytes() == pathlib.Path("database/database.py").read_bytes()
+          ast.parse(current)
+          print("Original source preserved; only required imports changed")
+          PY
