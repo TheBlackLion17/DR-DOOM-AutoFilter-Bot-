@@ -2581,7 +2581,7 @@ async def main():
     await bot.start()
     await slog.start(bot)
     if CFG['USER_SESSION']:
-        history = Client('history_reader',api_id=int(CFG['API_ID']),api_hash=CFG['API_HASH'],session_string=CFG['USER_SESSION'],in_memory=True)
+        history = Client('history_reader',api_id=int(CFG['API_ID']),api_hash=CFG['API_HASH'],session_string=CFG['USER_SESSION'],in_memory=True,no_updates=True)
         await history.start()
     log.info('Bot running, configured channels: %s',CHANNELS)
     try:
