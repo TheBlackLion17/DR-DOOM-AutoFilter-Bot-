@@ -3,7 +3,7 @@ import asyncio
 import logging
 import re
 
-from pyrogram import Client, filters, idle
+from pyrogram import Client, filters, idle, StopPropagation
 from pyrogram.errors import FloodWait, UserNotParticipant, RPCError
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
