@@ -1,16 +1,16 @@
 [Unit]
-Description=Telegram Movies and Series AutoFilter Bot
+Description=DR DOOM Telegram AutoFilter Bot
 After=network-online.target mysql.service
 Wants=network-online.target
+Requires=mysql.service
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/autofilter_bot
-ExecStart=/opt/autofilter_bot/venv/bin/python /opt/autofilter_bot/bot.py
-Restart=always
+WorkingDirectory=/root/DR-DOOM-AutoFilter-Bot-
+ExecStart=/root/DR-DOOM-AutoFilter-Bot-/venv/bin/python /root/DR-DOOM-AutoFilter-Bot-/bot.py
+Restart=on-failure
 RestartSec=10
-Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
