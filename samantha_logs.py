@@ -16,6 +16,7 @@ import time
 from html import escape
 
 from pyrogram.errors import FloodWait
+from pyrogram.enums import ParseMode
 
 logger = logging.getLogger("samantha.logs")
 LOG_CHANNEL = int(os.getenv("LOG_CHANNEL", "-1002801544620"))
@@ -41,7 +42,7 @@ async def emit(message, *, key=None, cooldown=0):
         await _client.send_message(
             LOG_CHANNEL,
             message[:4000],
-            parse_mode="html",
+            parse_mode=ParseMode.HTML,
             disable_web_page_preview=True,
         )
         return True
