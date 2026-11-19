@@ -152,11 +152,14 @@ For force subscription, set the required channel ID and a **real** `https://t.me
 For a persistent VPS deployment, adapt the included `autofilter.service` to your cloned project path, then install it:
 
 ```bash
+sudo systemctl stop autofilter.service
 sudo cp autofilter.service /etc/systemd/system/autofilter.service
 sudo systemctl daemon-reload
-sudo systemctl enable --now autofilter.service
-sudo systemctl status autofilter.service --no-pager
-sudo journalctl -u autofilter.service -n 50 --no-pager
+sudo systemctl reset-failed autofilter.service
+sudo systemctl restart autofilter.service
+
+sleep 5
+sudo systemctl status autofilter.service --no-pager -l
 ```
 
 > The included service may reference `/opt/autofilter_bot`; adjust `WorkingDirectory` and `ExecStart` if you cloned elsewhere. Do not run a second instance with the same bot token.
