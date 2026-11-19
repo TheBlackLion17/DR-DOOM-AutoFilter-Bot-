@@ -37,6 +37,9 @@ class ModularSmokeTests(unittest.TestCase):
         self.assertTrue(callable(parser.parse_name))
         self.assertTrue(callable(logging.emit))
         self.assertTrue(callable(filters.is_subscribed))
+        # Pyrogram schedules add_handler() on the event loop; flush those
+        # registration tasks before inspecting the dispatcher's groups.
+        asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.05))
         self.assertTrue(core.bot.dispatcher.groups)
 
     def test_parser_classifies_series(self):
