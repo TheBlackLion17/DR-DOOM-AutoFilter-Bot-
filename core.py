@@ -7,11 +7,11 @@ from pyrogram import Client, filters, idle
 from pyrogram.errors import FloodWait, UserNotParticipant, RPCError
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-import database as db
-import ags_indexer
-import samantha_logs as slog
+from database import connection as db
+from services import ags_indexer
+from services import logging as slog
 from config import CFG, ADMINS, CHANNELS, FORCE_CHANNEL, DELETE_SECONDS, PAGE_SIZE
-from parser import parse_name
+from services.parser import parse_name
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 log = logging.getLogger('autofilter')
