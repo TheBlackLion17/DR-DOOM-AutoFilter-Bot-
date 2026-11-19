@@ -1191,9 +1191,12 @@ async def register_source_channel(channel):
         )
         return False, "Cannot verify Temari as channel admin."
 
-    env_path = "/opt/autofilter_bot/.env"
+    from pathlib import Path
+    env_path = Path(__file__).resolve().parent / ".env"
+    if not env_path.is_file():
+        return False, "Project .env file is missing."
 
-    with open(env_path, "r", encoding="utf-8") as f:
+    with env_path.open("r", encoding="utf-8") as f:
         content = f.read()
 
     match = re.search(
@@ -1220,7 +1223,7 @@ async def register_source_channel(channel):
         + content[match.end():]
     )
 
-    temp_path = env_path + ".tmp"
+    temp_path = str(env_path) + ".tmp"
 
     with open(temp_path, "w", encoding="utf-8") as f:
         f.write(content)
