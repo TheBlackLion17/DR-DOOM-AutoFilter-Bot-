@@ -4,7 +4,7 @@ from core import bot, filters
 from plugins import admin
 from plugins import search
 from plugins import indexing
-from plugins import menus
+from plugins import menus, start as start_plugin, settings
 from plugins import delivery
 
 bot.on_message(filters.command("addadmin") & filters.private)(admin.doom_addadmin)
@@ -18,8 +18,8 @@ bot.on_callback_query(
 )(search.doom_noop)
 bot.on_message(filters.channel)(indexing.channel_index)
 bot.on_callback_query(filters.regex(r"^doom:verify_fsub$"))(admin.doom_verify_fsub)
-bot.on_message(filters.command("start") & filters.private)(menus.start)
-bot.on_callback_query(filters.regex(r"^tm:"))(menus.temari_menu)
+bot.on_message(filters.command("start") & filters.private)(start_plugin.start)
+bot.on_callback_query(filters.regex(r"^tm:"))(settings.temari_menu)
 bot.on_message(
     filters.command(["setwelcome", "editwelcome"])
     & filters.private
@@ -42,15 +42,15 @@ bot.on_message(
     filters.command("adminpanel") & filters.private
 )(admin.temari_admin_panel)
 bot.on_callback_query(filters.regex(r"^ta:"))(admin.temari_admin_callback)
-bot.on_callback_query(filters.regex(r"^tl2:"))(menus.temari_editor_callback)
+bot.on_callback_query(filters.regex(r"^tl2:"))(settings.temari_editor_callback)
 bot.on_message(
     filters.command("cancel") & filters.private,
     group=-1
-)(menus.cancel_menu_edit)
+)(settings.cancel_menu_edit)
 bot.on_message(
     filters.private & filters.text & ~filters.regex(r"^/"),
     group=-1
-)(menus.capture_menu_link)
+)(settings.capture_menu_link)
 bot.on_message(filters.command('help'))(search.help_command)
 bot.on_message(filters.command(['search','movies','series']))(search.command_search)
 bot.on_message(filters.text & ~filters.command(['start','help','search','movies','series','stats','index','progress']) & (filters.private | filters.group))(search.auto_search)
