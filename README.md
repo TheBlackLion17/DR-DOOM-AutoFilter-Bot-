@@ -65,11 +65,56 @@ Source Telegram channel
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/TheBlackLion17/DR-DOOM-AutoFilter-Bot.git
-cd DR-DOOM-AutoFilter-Bot
+git clone https://github.com/TheBlackLion17/DR-DOOM-AutoFilter-Bot-.git
+cd DR-DOOM-AutoFilter-Bot-
 ```
 
 ### 2. Install Python dependencies
+
+```bash
+cat generate_session.py
+```
+
+```generate session sring
+source venv/bin/activate
+python generate_session.py
+```
+
+### 3. Environment setup
+
+```bash
+nano .env
+```
+```Example 
+API_ID=YOUR_API_ID
+API_HASH=YOUR_API_HASH
+BOT_TOKEN=YOUR_BOT_TOKEN
+BOT_USERNAME=YOUR_BOT_USERNAME
+
+ADMINS=YOUR_ADMIN_ID
+
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=autofilter
+DB_PASSWORD=YOUR_DATABASE_PASSWORD
+DB_NAME=autofilter
+
+SOURCE_CHANNELS=YOUR_SOURCE_CHANNEL_ID
+FORCE_SUB_CHANNEL=YOUR_FORCE_SUB_CHANNEL_ID
+FORCE_SUB_LINK=https://t.me/YOUR_CHANNEL
+
+DELETE_SECONDS=300
+RESULTS_PER_PAGE=8
+USER_SESSION=
+```
+Ctrl + O, Enter, then Ctrl + X
+```bash
+chmod 600 .env
+```
+
+
+
+### 4. Install Python dependencies
 
 ```bash
 sudo apt update
@@ -78,7 +123,7 @@ python3 -m venv venv
 ./venv/bin/pip install -r requirements.txt
 ```
 
-### 3. Create the database
+### 5. Create the database
 
 ```bash
 sudo mysql
@@ -92,13 +137,13 @@ FLUSH PRIVILEGES;
 EXIT;
 ```
 
-### 4. Configure the bot
+### 6. Configure the bot
 
 Create a `.env` file using the configuration expected by `config.py` and the original project documentation. Configure your API credentials, bot token, MySQL credentials, admin IDs, and source channels. Never commit `.env` or Telegram session files.
 
 For force subscription, set the required channel ID and a **real** `https://t.me/...` public or invite link. A numeric channel ID is **not** a valid join URL. Add the bot as an administrator where it must check membership or read channel posts.
 
-### 5. Run
+### 7. Run
 
 ```bash
 ./venv/bin/python bot.py
