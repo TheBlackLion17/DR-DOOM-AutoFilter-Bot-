@@ -685,7 +685,7 @@ async def doom_verify_fsub(_, q):
 
 @bot.on_message(filters.command("start") & filters.private)
 async def start(_, msg):
-    slog.emit_background("👤 <b>Bot /start</b>\nUser: <code>%s</code>" % msg.from_user.id, key=f"start:{msg.from_user.id}", cooldown=3600)
+    slog.emit_background(f"👤 <b>Bot /start</b>\nUser: <code>{msg.from_user.id}</code>\nName: {slog._safe(msg.from_user.first_name)}\nUsername: {slog._safe(msg.from_user.username) if msg.from_user.username else 'Not set'}\n🕒 {slog._stamp()}", key=f"start:{msg.from_user.id}", cooldown=3600)
     await react_to_start(msg)
     # Preserve existing file-delivery deep links.
     if len(msg.command) > 1 and msg.command[1].startswith("file_"):

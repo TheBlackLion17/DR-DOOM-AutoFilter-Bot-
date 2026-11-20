@@ -14,6 +14,8 @@ import logging
 import os
 import time
 from html import escape
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from pyrogram.errors import FloodWait
 from pyrogram.enums import ParseMode
@@ -23,6 +25,10 @@ LOG_CHANNEL = int(os.getenv("LOG_CHANNEL", "-1002801544620"))
 _client = None
 _last = {}
 _tasks = set()
+
+
+def _stamp():
+    return datetime.now(ZoneInfo('Asia/Kolkata')).strftime('%d %b %Y, %I:%M %p IST')
 
 
 def _safe(value, limit=180):
@@ -66,11 +72,11 @@ def emit_background(message, **kwargs):
 async def start(client):
     global _client
     _client = client
-    return await emit("🟢 <b>Samantha AutoFilter started</b>\n🤖 @agsfilterV3_bot")
+    return await emit(f"🟢 <b>Samantha AutoFilter started</b>\n🤖 @agsfilterV3_bot\n🖥️ {_safe(os.uname().nodename)}\n🕒 {_stamp()}")
 
 
 async def stop():
-    await emit("🔴 <b>Samantha AutoFilter stopping</b>")
+    await emit(f"🔴 <b>Samantha AutoFilter stopping</b>\n🕒 {_stamp()}")
 
 
 async def user_started(user):
@@ -121,3 +127,26 @@ async def index_event(event, channel_id, *, scanned=None, indexed=None, skipped=
         key=f"index:{event}:{channel_id}",
         cooldown=60 if event == "progress" else 0,
     )
+
+async def new_user(user, total=None):
+    """Notify once, after the first successful MySQL insert."""
+    if user is None:
+        return
+    username = "@" + _safe(user.username) if user.username else "Not set"
+    total_line = f"📊 Total users: {_safe(total)}\n" if total is not None else ""
+    await emit(
+        "🆕 <b>NEW SAMANTHA USER</b>\n"
+        f"👤 Name: {_safe(user.first_name)} {_safe(user.last_name)}\n"
+        f"🆔 ID: <code>{_safe(user.id)}</code>\n"
+        f"🔗 Username: {username}\n"
+        + total_line + f"🕒 {_stamp()}"
+    )
+
+
+def emit_background_new_user(user, total=None):
+    try:
+        task = asyncio.create_task(new_user(user, total))
+        _tasks.add(task)
+        task.add_done_callback(_tasks.discard)
+    except RuntimeError:
+        logger.warning("No running event loop for new user log")
