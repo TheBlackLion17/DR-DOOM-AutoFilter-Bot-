@@ -705,6 +705,15 @@ async def start(_, msg):
             reply_markup=doom_fsub_keyboard()
         )
 
+    # OTT Updates links use /start search_<movie_title>.
+    # Search only after the same subscription check as normal /start.
+    if len(msg.command) > 1 and msg.command[1].startswith("search_"):
+        raw_query = msg.command[1][7:]
+        query = re.sub(r"_+", " ", raw_query).strip()
+        if len(query) < 2:
+            return await msg.reply_text("Invalid movie search link.")
+        return await search_and_reply(msg, query)
+
     await send_start_welcome(msg)
 
 
