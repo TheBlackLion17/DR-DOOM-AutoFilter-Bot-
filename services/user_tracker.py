@@ -5,6 +5,7 @@ Only messages/callbacks delivered to the bot are visible. No group member scrapi
 import logging
 
 from pyrogram import filters
+from services import samantha_logs as slog
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
 
 log = logging.getLogger(__name__)
@@ -32,17 +33,10 @@ def register(bot, db, is_admin):
     async def record(user, source):
         if not user or getattr(user, "is_bot", False):
             return
-        await db.execute("""
-            INSERT INTO bot_users
+        inserted = await db.execute("""
+            INSERT IGNORE INTO bot_users
                 (user_id, first_name, last_name, username, source)
             VALUES (%s, %s, %s, %s, %s)
-            ON DUPLICATE KEY UPDATE
-                first_name=VALUES(first_name),
-                last_name=VALUES(last_name),
-                username=VALUES(username),
-                last_active=CURRENT_TIMESTAMP,
-                total_requests=total_requests+1,
-                source=VALUES(source)
         """, (
             user.id,
             (user.first_name or "")[:255],
@@ -50,6 +44,20 @@ def register(bot, db, is_admin):
             (user.username or "")[:255] or None,
             source,
         ))
+        if inserted:
+            try:
+                row = await db.fetchone("SELECT COUNT(*) AS n FROM bot_users")
+                slog.emit_background_new_user(user, row["n"] if row else None)
+            except Exception:
+                log.exception("Unable to log new Telegram user")
+        else:
+            await db.execute("""
+                UPDATE bot_users SET first_name=%s, last_name=%s,
+                    username=%s, last_active=CURRENT_TIMESTAMP,
+                    total_requests=total_requests+1, source=%s
+                WHERE user_id=%s
+            """, ((user.first_name or "")[:255], (user.last_name or "")[:255],
+                  (user.username or "")[:255] or None, source, user.id))
 
     async def observe_message(_, message):
         try:
