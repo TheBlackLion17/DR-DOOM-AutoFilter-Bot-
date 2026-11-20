@@ -11,6 +11,7 @@ import database as db
 from services import ags_indexer
 from services import samantha_logs as slog
 from services import group_tracker
+from services import broadcast
 from services import user_tracker
 from config import CFG, ADMINS, CHANNELS, FORCE_CHANNEL, DELETE_SECONDS, PAGE_SIZE
 from services.parser import parse_name
@@ -2583,6 +2584,7 @@ async def main():
     group_tracker.register(bot, db, lambda user_id: user_id in DYNAMIC_ADMINS)
     await user_tracker.ensure_table(db)
     user_tracker.register(bot, db, lambda user_id: user_id in DYNAMIC_ADMINS)
+    broadcast.register(bot, db, lambda user_id: user_id in DYNAMIC_ADMINS, lambda message: slog.emit_background(message))
     await ensure_start_picture_table()
     await bot.start()
     await slog.start(bot)
