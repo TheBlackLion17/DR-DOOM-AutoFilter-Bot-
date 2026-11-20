@@ -10,6 +10,7 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import database as db
 from services import ags_indexer
 from services import samantha_logs as slog
+from services import group_tracker
 from config import CFG, ADMINS, CHANNELS, FORCE_CHANNEL, DELETE_SECONDS, PAGE_SIZE
 from services.parser import parse_name
 
@@ -2577,6 +2578,8 @@ async def main():
     await ags_indexer.ensure_tables()
     await ensure_search_table()
     await load_doom_access()
+    await group_tracker.ensure_table(db)
+    group_tracker.register(bot, db, lambda user_id: user_id in DYNAMIC_ADMINS)
     await ensure_start_picture_table()
     await bot.start()
     await slog.start(bot)
