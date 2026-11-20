@@ -133,11 +133,20 @@ async def new_user(user, total=None):
     if user is None:
         return
     username = "@" + _safe(user.username) if user.username else "Not set"
-    total_line = f"📊 Total users: {_safe(total)}\\n" if total is not None else ""
+    total_line = f"📊 Total users: {_safe(total)}\n" if total is not None else ""
     await emit(
-        "🆕 <b>NEW SAMANTHA USER</b>\\n"
-        f"👤 Name: {_safe(user.first_name)} {_safe(user.last_name)}\\n"
-        f"🆔 ID: <code>{_safe(user.id)}</code>\\n"
-        f"🔗 Username: {username}\\n"
+        "🆕 <b>NEW SAMANTHA USER</b>\n"
+        f"👤 Name: {_safe(user.first_name)} {_safe(user.last_name)}\n"
+        f"🆔 ID: <code>{_safe(user.id)}</code>\n"
+        f"🔗 Username: {username}\n"
         + total_line + f"🕒 {_stamp()}"
     )
+
+
+def emit_background_new_user(user, total=None):
+    try:
+        task = asyncio.create_task(new_user(user, total))
+        _tasks.add(task)
+        task.add_done_callback(_tasks.discard)
+    except RuntimeError:
+        logger.warning("No running event loop for new user log")
