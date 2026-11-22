@@ -2764,7 +2764,43 @@ async def set_movie_request_channel(_, msg):
     await smart_search.set_request_channel(db, channel_id)
     await msg.reply_text(f"✅ Movie request channel set: {channel_id}")
 
-@bot.on_callback_query(filters.regex(r'^mr:(check|uploaded|pending|incorrect):\\d+
+@bot.on_callback_query(filters.regex(r'^mr:(check|uploaded|pending|incorrect):\d+
+async def manage_movie_request(_, q):
+    if not q.from_user or q.from_user.id not in DYNAMIC_ADMINS:
+        return await q.answer("Admins only.", show_alert=True)
+    _, action, raw_id = q.data.split(':')
+    row = await db.fetchone("SELECT id,user_id,query,status FROM movie_requests WHERE id=%s",
+                            (int(raw_id),))
+    if not row:
+        return await q.answer("Request not found.", show_alert=True)
+    if action in ('check', 'uploaded'):
+        matches = await smart_search.find_indexed(db, row['query'])
+        if not matches:
+            return await q.answer("No exact indexed movie found. Upload and index it first.", show_alert=True)
+        if row['status'] == 'uploaded':
+            return await q.answer("Already fulfilled.", show_alert=True)
+        delivered = await deliver_movie_request(row, matches)
+        if delivered:
+            row['status'] = 'uploaded'
+            await refresh_movie_request(row)
+            return await q.answer("User notified with movie results.", show_alert=True)
+        return await q.answer("User could not be notified, or request already processed.", show_alert=True)
+    if action == 'pending':
+        await db.execute("UPDATE movie_requests SET status='pending' WHERE id=%s", (row['id'],))
+        row['status'] = 'pending'
+    elif action == 'incorrect':
+        await db.execute("UPDATE movie_requests SET status='incorrect' WHERE id=%s", (row['id'],))
+        row['status'] = 'incorrect'
+        try:
+            await bot.send_message(row['user_id'],
+                f"❌ Your request for {row['query'][:150]} was marked incorrect. Please search again with the correct title.")
+        except Exception:
+            log.exception("Could not notify requester of incorrect title")
+    await refresh_movie_request(row)
+    await q.answer("Request status updated.")
+
+
+if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
 ))
