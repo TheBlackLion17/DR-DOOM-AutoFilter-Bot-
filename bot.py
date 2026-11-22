@@ -239,6 +239,8 @@ async def index_message(msg):
             f"Message: <code>{msg.id}</code>",
             key=f"indexed:{msg.chat.id}", cooldown=60,
         )
+    if result:
+        asyncio.create_task(notify_matching_requests(parsed['title']))
     return bool(result)
 
 
@@ -2645,12 +2647,161 @@ async def movie_request(_, q):
     if not created:
         return await q.answer("You already requested this title.", show_alert=True)
     await q.answer("Movie request submitted!", show_alert=True)
+    request_row = await db.fetchone(
+        "SELECT id,user_id,query,status FROM movie_requests WHERE user_id=%s AND normalized_query=%s",
+        (q.from_user.id, smart_search.normalize(raw)[:255]))
+    channel_id = await smart_search.request_channel(db)
+    if channel_id and request_row:
+        try:
+            await post_movie_request(request_row, channel_id)
+            return
+        except Exception:
+            log.exception("Could not post movie request to channel %s", channel_id)
     for admin_id in set(DYNAMIC_ADMINS):
         try:
             await bot.send_message(admin_id,
                 f"📩 **New movie request**\n🎬 {raw}\n👤 User ID: `{q.from_user.id}`")
         except Exception:
             log.exception("Could not notify admin %s about movie request", admin_id)
+
+
+# ===== MOVIE REQUEST MANAGEMENT =====
+
+def request_buttons(request_id):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔎 Check Upload", callback_data=f"mr:check:{request_id}"),
+         InlineKeyboardButton("✅ Uploaded", callback_data=f"mr:uploaded:{request_id}")],
+        [InlineKeyboardButton("⏳ Pending", callback_data=f"mr:pending:{request_id}"),
+         InlineKeyboardButton("❌ Incorrect", callback_data=f"mr:incorrect:{request_id}")]
+    ])
+
+def request_text(row):
+    from html import escape
+    return (f"🎬 <b>MOVIE REQUEST #{row['id']}</b>\\n\\n"
+            f"🎥 <b>Title:</b> {escape(str(row['query']))}\\n"
+            f"👤 <b>User:</b> <code>{row['user_id']}</code>\\n"
+            f"📌 <b>Status:</b> {escape(str(row['status']).upper())}")
+
+async def post_movie_request(row, channel_id):
+    posted = await bot.send_message(channel_id, request_text(row),
+                                    parse_mode=ParseMode.HTML,
+                                    reply_markup=request_buttons(row['id']))
+    await db.execute("""INSERT INTO movie_request_notifications(request_id,channel_id,message_id)
+        VALUES(%s,%s,%s) ON DUPLICATE KEY UPDATE channel_id=VALUES(channel_id),
+        message_id=VALUES(message_id)""", (row['id'], channel_id, posted.id))
+
+async def refresh_movie_request(row):
+    record = await db.fetchone(
+        "SELECT channel_id,message_id FROM movie_request_notifications WHERE request_id=%s",
+        (row['id'],))
+    if record:
+        try:
+            await bot.edit_message_text(record['channel_id'], record['message_id'],
+                request_text(row), parse_mode=ParseMode.HTML,
+                reply_markup=request_buttons(row['id']))
+        except Exception as exc:
+            if 'MESSAGE_NOT_MODIFIED' not in str(exc).upper():
+                log.warning("Could not refresh request message: %s", exc)
+
+async def deliver_movie_request(row, matches):
+    # Claim delivery before sending, so concurrent indexing and admin actions cannot duplicate it.
+    claimed = await db.execute(
+        "INSERT IGNORE INTO movie_request_delivery(request_id) VALUES(%s)", (row['id'],))
+    if not claimed:
+        return False
+    try:
+        buttons = [[InlineKeyboardButton(
+            doom_result_name(item), callback_data=f"get:{item['id']}")]
+            for item in matches[:10]]
+        from html import escape
+        await bot.send_message(row['user_id'],
+            "✅ <b>Your requested movie is available!</b>\\n\\n"
+            f"🎬 {escape(str(row['query']))}\\n\\n"
+            "Tap a file below to receive it.",
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(buttons))
+    except Exception:
+        await db.execute("DELETE FROM movie_request_delivery WHERE request_id=%s", (row['id'],))
+        log.exception("Failed to notify requester %s", row['user_id'])
+        return False
+    await db.execute("UPDATE movie_requests SET status='uploaded' WHERE id=%s", (row['id'],))
+    return True
+
+async def notify_matching_requests(title):
+    try:
+        pending = await smart_search.pending_matches(db, title)
+        if not pending:
+            return
+        matches = await smart_search.find_indexed(db, title)
+        if not matches:
+            return
+        for row in pending:
+            if await deliver_movie_request(row, matches):
+                row['status'] = 'uploaded'
+                await refresh_movie_request(row)
+    except Exception:
+        log.exception("Automatic movie request fulfillment failed")
+
+@bot.on_message(filters.command('setrequestchannel') & filters.private)
+async def set_movie_request_channel(_, msg):
+    if not msg.from_user or msg.from_user.id != OWNER_ID:
+        return await msg.reply_text("Owner only.")
+    try:
+        channel_id = int(msg.command[1])
+        if channel_id >= 0:
+            raise ValueError
+    except (IndexError, ValueError):
+        return await msg.reply_text("Usage: /setrequestchannel -1001234567890")
+    try:
+        me = await bot.get_me()
+        member = await bot.get_chat_member(channel_id, me.id)
+        if 'administrator' not in str(member.status).lower() and 'owner' not in str(member.status).lower():
+            return await msg.reply_text("Make the bot a channel administrator first.")
+        await bot.send_message(channel_id, "🎬 Movie request management enabled.")
+    except Exception:
+        log.exception("Request channel verification failed")
+        return await msg.reply_text("Cannot post to that channel. Add the bot as admin first.")
+    await smart_search.set_request_channel(db, channel_id)
+    await msg.reply_text(f"✅ Movie request channel set: {channel_id}")
+
+@bot.on_callback_query(filters.regex(r'^mr:(check|uploaded|pending|incorrect):\\d+
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+))
+async def manage_movie_request(_, q):
+    if not q.from_user or q.from_user.id not in DYNAMIC_ADMINS:
+        return await q.answer("Admins only.", show_alert=True)
+    _, action, raw_id = q.data.split(':')
+    row = await db.fetchone("SELECT id,user_id,query,status FROM movie_requests WHERE id=%s",
+                            (int(raw_id),))
+    if not row:
+        return await q.answer("Request not found.", show_alert=True)
+    if action in ('check', 'uploaded'):
+        matches = await smart_search.find_indexed(db, row['query'])
+        if not matches:
+            return await q.answer("No exact indexed movie found. Upload and index it first.", show_alert=True)
+        if row['status'] == 'uploaded':
+            return await q.answer("Already fulfilled.", show_alert=True)
+        delivered = await deliver_movie_request(row, matches)
+        if delivered:
+            row['status'] = 'uploaded'
+            await refresh_movie_request(row)
+            return await q.answer("User notified with movie results.", show_alert=True)
+        return await q.answer("User could not be notified, or request already processed.", show_alert=True)
+    if action == 'pending':
+        await db.execute("UPDATE movie_requests SET status='pending' WHERE id=%s", (row['id'],))
+        row['status'] = 'pending'
+    elif action == 'incorrect':
+        await db.execute("UPDATE movie_requests SET status='incorrect' WHERE id=%s", (row['id'],))
+        row['status'] = 'incorrect'
+        try:
+            await bot.send_message(row['user_id'],
+                f"❌ Your request for {row['query'][:150]} was marked incorrect. Please search again with the correct title.")
+        except Exception:
+            log.exception("Could not notify requester of incorrect title")
+    await refresh_movie_request(row)
+    await q.answer("Request status updated.")
+
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
