@@ -2606,10 +2606,6 @@ async def main():
         await bot.stop()
         await db.close_db()
 
-if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
-))
 async def spell_retry(_, q):
     await q.answer("Send another movie or series title in chat.", show_alert=True)
 
