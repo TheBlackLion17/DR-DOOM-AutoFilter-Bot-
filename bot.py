@@ -467,14 +467,14 @@ async def ensure_search_table():
     )''')
 
 
-async def search_and_reply(msg, query, kind='all'):
+async def search_and_reply(msg, query, kind='all', owner_id=None):
     query = query.strip()[:100]
     if len(query) < 2:
         return
     rows,total = await search_results(query, kind=kind)
     if not rows:
-        return await smart_search.missing_reply(db, msg, query, kind)
-    sid = await db.insert_id('INSERT INTO searches(query,owner_id) VALUES(%s,%s)',((kind + '|' if kind != 'all' else '') + query,msg.from_user.id if msg.from_user else 0))
+        return await smart_search.missing_reply(db, msg, query, kind, owner_id=owner_id)
+    sid = await db.insert_id('INSERT INTO searches(query,owner_id) VALUES(%s,%s)',((kind + '|' if kind != 'all' else '') + query,owner_id if owner_id is not None else (msg.from_user.id if msg.from_user else 0)))
     await msg.reply_text(
         doom_search_text(query, total, 0),
         reply_markup=result_markup(rows, 0, total, sid)
@@ -2614,9 +2614,11 @@ async def spell_retry(_, q):
 @bot.on_callback_query(filters.regex(r'^spell:\d+:\d+$'))
 async def spell_choice(_, q):
     _, search_id, index = q.data.split(':')
-    record = await db.fetchone("SELECT query FROM searches WHERE id=%s", (int(search_id),))
+    record = await db.fetchone("SELECT query,owner_id FROM searches WHERE id=%s", (int(search_id),))
     if not record:
         return await q.answer("Search expired. Please search again.", show_alert=True)
+    if not q.from_user or record['owner_id'] != q.from_user.id:
+        return await q.answer('Please search for the title yourself first.', show_alert=True)
     raw = record['query']
     kind = 'all'
     if raw.startswith(('movie|', 'series|')):
@@ -2625,7 +2627,7 @@ async def spell_choice(_, q):
     if int(index) >= len(matches):
         return await q.answer("Suggestion expired. Please search again.", show_alert=True)
     await q.answer()
-    await search_and_reply(q.message, matches[int(index)], kind=kind)
+    await search_and_reply(q.message, matches[int(index)], kind=kind, owner_id=q.from_user.id)
 
 @bot.on_callback_query(filters.regex(r'^request:\d+$'))
 async def movie_request(_, q):
