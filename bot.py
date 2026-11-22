@@ -2644,23 +2644,35 @@ async def movie_request(_, q):
     if raw.startswith(('movie|', 'series|')):
         raw = raw.split('|', 1)[1]
     created = await smart_search.record_request(db, q.from_user.id, raw)
-    if not created:
-        return await q.answer("You already requested this title.", show_alert=True)
-    await q.answer("Movie request submitted!", show_alert=True)
     request_row = await db.fetchone(
         "SELECT id,user_id,query,status FROM movie_requests WHERE user_id=%s AND normalized_query=%s",
         (q.from_user.id, smart_search.normalize(raw)[:255]))
+    if not request_row:
+        return await q.answer("Could not save the request. Please try again.", show_alert=True)
+    if request_row['status'] != 'pending':
+        return await q.answer("This request is already marked " + str(request_row['status']) + ".", show_alert=True)
+
     channel_id = await smart_search.request_channel(db)
-    if channel_id and request_row:
+    if channel_id:
+        existing = await db.fetchone(
+            "SELECT channel_id,message_id FROM movie_request_notifications WHERE request_id=%s",
+            (request_row['id'],))
+        if existing and int(existing['channel_id']) == channel_id:
+            return await q.answer("Your request is already in the admin channel.", show_alert=True)
         try:
             await post_movie_request(request_row, channel_id)
-            return
+            return await q.answer("Movie request sent to the admin channel!", show_alert=True)
         except Exception:
             log.exception("Could not post movie request to channel %s", channel_id)
+            return await q.answer("Request saved, but channel delivery failed. Please contact an admin.", show_alert=True)
+
+    if not created:
+        return await q.answer("You already requested this title. Ask the owner to configure the request channel.", show_alert=True)
+    await q.answer("Movie request saved. Admin channel is not configured.", show_alert=True)
     for admin_id in set(DYNAMIC_ADMINS):
         try:
             await bot.send_message(admin_id,
-                f"📩 **New movie request**\n🎬 {raw}\n👤 User ID: `{q.from_user.id}`")
+                f"📩 **New movie request**\\n🎬 {raw}\\n👤 User ID: `{q.from_user.id}`")
         except Exception:
             log.exception("Could not notify admin %s about movie request", admin_id)
 
