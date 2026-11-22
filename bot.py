@@ -3209,10 +3209,6 @@ async def main():
         await bot.stop()
         await db.close_db()
 
-if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
-))
 async def spell_choice(_, q):
     _, search_id, index = q.data.split(':')
     record = await db.fetchone("SELECT query FROM searches WHERE id=%s", (int(search_id),))
@@ -3828,10 +3824,6 @@ async def main():
         await bot.stop()
         await db.close_db()
 
-if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
-))
 async def movie_request(_, q):
     if not q.from_user:
         return await q.answer("Please open the bot in private.", show_alert=True)
