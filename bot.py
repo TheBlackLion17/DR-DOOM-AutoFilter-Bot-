@@ -2764,7 +2764,7 @@ async def set_movie_request_channel(_, msg):
     await smart_search.set_request_channel(db, channel_id)
     await msg.reply_text(f"✅ Movie request channel set: {channel_id}")
 
-@bot.on_callback_query(filters.regex(r'^mr:(check|uploaded|pending|incorrect):\\d+$'))
+@bot.on_callback_query(filters.regex(r'^mr:(check|uploaded|pending|incorrect):\d+$'))
 async def manage_movie_request(_, q):
     if not q.from_user or q.from_user.id not in DYNAMIC_ADMINS:
         return await q.answer("Admins only.", show_alert=True)
