@@ -42,8 +42,8 @@ async def suggestions(db, query, kind='all', limit=5):
     scored.sort(key=lambda item: (-item[0], len(item[1]), item[1]))
     return [title for _, title in scored[:limit]]
 
-async def missing_reply(db, msg, query, kind='all'):
-    user_id = msg.from_user.id if msg.from_user else 0
+async def missing_reply(db, msg, query, kind='all', owner_id=None):
+    user_id = owner_id if owner_id is not None else (msg.from_user.id if msg.from_user else 0)
     # Store the original search context in MySQL, not callback_data.
     search_id = await db.insert_id(
         "INSERT INTO searches(query,owner_id) VALUES(%s,%s)",
