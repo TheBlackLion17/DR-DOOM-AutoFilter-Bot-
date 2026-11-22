@@ -18,6 +18,21 @@ async def ensure_tables(db):
         KEY idx_status (status)
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci""")
 
+
+    await db.execute("""CREATE TABLE IF NOT EXISTS movie_request_settings (
+        setting_key VARCHAR(64) PRIMARY KEY,
+        setting_value VARCHAR(255) NOT NULL
+    ) CHARACTER SET utf8mb4""")
+    await db.execute("""CREATE TABLE IF NOT EXISTS movie_request_notifications (
+        request_id BIGINT PRIMARY KEY,
+        channel_id BIGINT NOT NULL,
+        message_id BIGINT NOT NULL
+    ) CHARACTER SET utf8mb4""")
+    await db.execute("""CREATE TABLE IF NOT EXISTS movie_request_delivery (
+        request_id BIGINT PRIMARY KEY,
+        delivered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) CHARACTER SET utf8mb4""")
+
 async def suggestions(db, query, kind='all', limit=5):
     query_norm = normalize(query)
     if len(query_norm) < 2:
@@ -73,3 +88,26 @@ async def record_request(db, user_id, query):
         (user_id, query[:255], normalized)
     )
     return bool(count)
+
+async def request_channel(db):
+    row = await db.fetchone("SELECT setting_value FROM movie_request_settings WHERE setting_key='request_channel'")
+    return int(row['setting_value']) if row else 0
+
+async def set_request_channel(db, channel_id):
+    await db.execute("""INSERT INTO movie_request_settings(setting_key,setting_value)
+        VALUES('request_channel',%s) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)""",
+        (str(channel_id),))
+
+async def find_indexed(db, title):
+    normalized = normalize(title)
+    if not normalized:
+        return []
+    rows = await db.fetchall(
+        "SELECT id,title,file_name FROM files WHERE kind='movie' AND LOWER(title)=LOWER(%s) ORDER BY id DESC LIMIT 12",
+        (title,))
+    return [row for row in rows if normalize(row['title']) == normalized]
+
+async def pending_matches(db, title):
+    rows = await db.fetchall("SELECT id,user_id,query FROM movie_requests WHERE status='pending' ORDER BY id DESC LIMIT 2000")
+    target = normalize(title)
+    return [row for row in rows if normalize(row['query']) == target]
