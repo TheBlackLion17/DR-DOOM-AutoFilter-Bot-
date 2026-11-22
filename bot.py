@@ -2611,7 +2611,49 @@ async def main():
 async def spell_retry(_, q):
     await q.answer("Send another movie or series title in chat.", show_alert=True)
 
-@bot.on_callback_query(filters.regex(r'^spell:\\d+:\\d+$'))
+@bot.on_callback_query(filters.regex(r'^spell:\d+:\d+))
+async def spell_choice(_, q):
+    _, search_id, index = q.data.split(':')
+    record = await db.fetchone("SELECT query FROM searches WHERE id=%s", (int(search_id),))
+    if not record:
+        return await q.answer("Search expired. Please search again.", show_alert=True)
+    raw = record['query']
+    kind = 'all'
+    if raw.startswith(('movie|', 'series|')):
+        kind, raw = raw.split('|', 1)
+    matches = await smart_search.suggestions(db, raw, kind)
+    if int(index) >= len(matches):
+        return await q.answer("Suggestion expired. Please search again.", show_alert=True)
+    await q.answer()
+    await search_and_reply(q.message, matches[int(index)], kind=kind)
+
+@bot.on_callback_query(filters.regex(r'^request:\d+))
+async def movie_request(_, q):
+    if not q.from_user:
+        return await q.answer("Please open the bot in private.", show_alert=True)
+    record = await db.fetchone("SELECT query,owner_id FROM searches WHERE id=%s", (int(q.data.split(':')[1]),))
+    if not record:
+        return await q.answer("Request expired. Search again.", show_alert=True)
+    if record['owner_id'] != q.from_user.id:
+        return await q.answer("Please search for the title yourself first.", show_alert=True)
+    raw = record['query']
+    if raw.startswith(('movie|', 'series|')):
+        raw = raw.split('|', 1)[1]
+    created = await smart_search.record_request(db, q.from_user.id, raw)
+    if not created:
+        return await q.answer("You already requested this title.", show_alert=True)
+    await q.answer("Movie request submitted!", show_alert=True)
+    for admin_id in set(DYNAMIC_ADMINS):
+        try:
+            await bot.send_message(admin_id,
+                f"📩 **New movie request**\n🎬 {raw}\n👤 User ID: `{q.from_user.id}`")
+        except Exception:
+            log.exception("Could not notify admin %s about movie request", admin_id)
+
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+))
 async def spell_choice(_, q):
     _, search_id, index = q.data.split(':')
     record = await db.fetchone("SELECT query FROM searches WHERE id=%s", (int(search_id),))
@@ -2628,6 +2670,100 @@ async def spell_choice(_, q):
     await search_and_reply(q.message, matches[int(index)], kind=kind)
 
 @bot.on_callback_query(filters.regex(r'^request:\\d+$'))
+async def movie_request(_, q):
+    if not q.from_user:
+        return await q.answer("Please open the bot in private.", show_alert=True)
+    record = await db.fetchone("SELECT query,owner_id FROM searches WHERE id=%s", (int(q.data.split(':')[1]),))
+    if not record:
+        return await q.answer("Request expired. Search again.", show_alert=True)
+    if record['owner_id'] != q.from_user.id:
+        return await q.answer("Please search for the title yourself first.", show_alert=True)
+    raw = record['query']
+    if raw.startswith(('movie|', 'series|')):
+        raw = raw.split('|', 1)[1]
+    created = await smart_search.record_request(db, q.from_user.id, raw)
+    if not created:
+        return await q.answer("You already requested this title.", show_alert=True)
+    await q.answer("Movie request submitted!", show_alert=True)
+    for admin_id in set(DYNAMIC_ADMINS):
+        try:
+            await bot.send_message(admin_id,
+                f"📩 **New movie request**\n🎬 {raw}\n👤 User ID: `{q.from_user.id}`")
+        except Exception:
+            log.exception("Could not notify admin %s about movie request", admin_id)
+
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+))
+async def movie_request(_, q):
+    if not q.from_user:
+        return await q.answer("Please open the bot in private.", show_alert=True)
+    record = await db.fetchone("SELECT query,owner_id FROM searches WHERE id=%s", (int(q.data.split(':')[1]),))
+    if not record:
+        return await q.answer("Request expired. Search again.", show_alert=True)
+    if record['owner_id'] != q.from_user.id:
+        return await q.answer("Please search for the title yourself first.", show_alert=True)
+    raw = record['query']
+    if raw.startswith(('movie|', 'series|')):
+        raw = raw.split('|', 1)[1]
+    created = await smart_search.record_request(db, q.from_user.id, raw)
+    if not created:
+        return await q.answer("You already requested this title.", show_alert=True)
+    await q.answer("Movie request submitted!", show_alert=True)
+    for admin_id in set(DYNAMIC_ADMINS):
+        try:
+            await bot.send_message(admin_id,
+                f"📩 **New movie request**\n🎬 {raw}\n👤 User ID: `{q.from_user.id}`")
+        except Exception:
+            log.exception("Could not notify admin %s about movie request", admin_id)
+
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+))
+async def spell_choice(_, q):
+    _, search_id, index = q.data.split(':')
+    record = await db.fetchone("SELECT query FROM searches WHERE id=%s", (int(search_id),))
+    if not record:
+        return await q.answer("Search expired. Please search again.", show_alert=True)
+    raw = record['query']
+    kind = 'all'
+    if raw.startswith(('movie|', 'series|')):
+        kind, raw = raw.split('|', 1)
+    matches = await smart_search.suggestions(db, raw, kind)
+    if int(index) >= len(matches):
+        return await q.answer("Suggestion expired. Please search again.", show_alert=True)
+    await q.answer()
+    await search_and_reply(q.message, matches[int(index)], kind=kind)
+
+@bot.on_callback_query(filters.regex(r'^request:\d+))
+async def movie_request(_, q):
+    if not q.from_user:
+        return await q.answer("Please open the bot in private.", show_alert=True)
+    record = await db.fetchone("SELECT query,owner_id FROM searches WHERE id=%s", (int(q.data.split(':')[1]),))
+    if not record:
+        return await q.answer("Request expired. Search again.", show_alert=True)
+    if record['owner_id'] != q.from_user.id:
+        return await q.answer("Please search for the title yourself first.", show_alert=True)
+    raw = record['query']
+    if raw.startswith(('movie|', 'series|')):
+        raw = raw.split('|', 1)[1]
+    created = await smart_search.record_request(db, q.from_user.id, raw)
+    if not created:
+        return await q.answer("You already requested this title.", show_alert=True)
+    await q.answer("Movie request submitted!", show_alert=True)
+    for admin_id in set(DYNAMIC_ADMINS):
+        try:
+            await bot.send_message(admin_id,
+                f"📩 **New movie request**\n🎬 {raw}\n👤 User ID: `{q.from_user.id}`")
+        except Exception:
+            log.exception("Could not notify admin %s about movie request", admin_id)
+
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+))
 async def movie_request(_, q):
     if not q.from_user:
         return await q.answer("Please open the bot in private.", show_alert=True)
