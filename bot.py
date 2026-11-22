@@ -12,6 +12,7 @@ from services import ags_indexer
 from services import samantha_logs as slog
 from services import group_tracker
 from services import broadcast
+from services import smart_search
 from services import user_tracker
 from config import CFG, ADMINS, CHANNELS, FORCE_CHANNEL, DELETE_SECONDS, PAGE_SIZE
 from services.parser import parse_name
@@ -466,16 +467,14 @@ async def ensure_search_table():
     )''')
 
 
-async def search_and_reply(msg, query):
+async def search_and_reply(msg, query, kind='all'):
     query = query.strip()[:100]
     if len(query) < 2:
         return
-    rows,total = await search_results(query)
+    rows,total = await search_results(query, kind=kind)
     if not rows:
-        if msg.chat.type.name.lower() == 'private':
-            await msg.reply_text('No matching files found.')
-        return
-    sid = await db.insert_id('INSERT INTO searches(query,owner_id) VALUES(%s,%s)',(query,msg.from_user.id if msg.from_user else 0))
+        return await smart_search.missing_reply(db, msg, query, kind)
+    sid = await db.insert_id('INSERT INTO searches(query,owner_id) VALUES(%s,%s)',((kind + '|' if kind != 'all' else '') + query,msg.from_user.id if msg.from_user else 0))
     await msg.reply_text(
         doom_search_text(query, total, 0),
         reply_markup=result_markup(rows, 0, total, sid)
@@ -1998,18 +1997,7 @@ async def command_search(_,msg):
     if not query:
         return await msg.reply_text('Example: /search Stranger Things')
     kind = {'movies':'movie','series':'series'}.get(msg.command[0].lower(),'all')
-    # Add kind to query lookup by using dedicated search context syntax.
-    if kind == 'all':
-        return await search_and_reply(msg,query)
-    rows,total = await search_results(query,kind=kind)
-    if not rows:
-        return await msg.reply_text('No matching files found.')
-    sid = await db.insert_id('INSERT INTO searches(query,owner_id) VALUES(%s,%s)',(f'{kind}|{query}',msg.from_user.id))
-    await msg.reply_text(
-        doom_search_text(query, total, 0),
-        reply_markup=result_markup(rows, 0, total, sid)
-    )
-
+    return await search_and_reply(msg, query, kind=kind)
 
 @bot.on_message(filters.text & ~filters.command(['start','help','search','movies','series','stats','index','progress']) & (filters.private | filters.group))
 async def auto_search(_,msg):
@@ -2588,6 +2576,7 @@ async def main():
     await db.init_db()
     await ags_indexer.ensure_tables()
     await ensure_search_table()
+    await smart_search.ensure_tables(db)
     await load_doom_access()
     await group_tracker.ensure_table(db)
     group_tracker.register(bot, db, lambda user_id: user_id in DYNAMIC_ADMINS)
