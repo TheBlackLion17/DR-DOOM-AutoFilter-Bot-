@@ -3,9 +3,9 @@ import asyncio
 import logging
 import re
 
-from pyrogram import Client, filters, idle
+from pyrogram import Client, filters, idle, StopPropagation
 from pyrogram.errors import FloodWait, UserNotParticipant, RPCError
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ForceReply
 
 import database as db
 from services import ags_indexer
@@ -2754,27 +2754,101 @@ async def notify_matching_requests(title):
     except Exception:
         log.exception("Automatic movie request fulfillment failed")
 
-@bot.on_message(filters.command('setrequestchannel') & filters.private)
+# Dedicated early handlers: the generic search handler in group 0 otherwise
+# intercepts owner configuration commands.
+REQUEST_CHANNEL_PENDING = set()
+
+async def configure_request_channel(channel_id):
+    me = await bot.get_me()
+    member = await bot.get_chat_member(channel_id, me.id)
+    status = str(member.status).lower()
+    if 'administrator' not in status and 'owner' not in status:
+        raise ValueError("Make the bot a channel administrator first.")
+    await bot.send_message(channel_id, "🎬 Movie request management enabled.")
+    await smart_search.set_request_channel(db, channel_id)
+
+def request_channel_panel(channel_id):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📢 Set Request Channel", callback_data="reqcfg:set")],
+        [InlineKeyboardButton("🔄 Refresh Status", callback_data="reqcfg:status")]
+    ])
+
+@bot.on_message(filters.command(['requestpanel', 'requestsettings']) & filters.private, group=-4)
+async def request_channel_panel_command(_, msg):
+    if not msg.from_user or msg.from_user.id != OWNER_ID:
+        await msg.reply_text("Owner only.")
+        raise StopPropagation
+    channel_id = await smart_search.request_channel(db)
+    await msg.reply_text(
+        f"🎬 Movie Request Settings\\n\\nChannel: {channel_id or 'Not configured'}\\n"
+        "Use the button to configure your private request channel.",
+        reply_markup=request_channel_panel(channel_id))
+    raise StopPropagation
+
+@bot.on_callback_query(filters.regex(r'^reqcfg:(set|status)$'), group=-4)
+async def request_channel_panel_callback(_, q):
+    if not q.from_user or q.from_user.id != OWNER_ID:
+        return await q.answer("Owner only.", show_alert=True)
+    if q.data == 'reqcfg:status':
+        channel_id = await smart_search.request_channel(db)
+        return await q.answer(f"Request channel: {channel_id or 'Not configured'}", show_alert=True)
+    REQUEST_CHANNEL_PENDING.add(q.from_user.id)
+    await q.answer()
+    await bot.send_message(q.from_user.id,
+        "📢 Send the numeric request channel ID, starting with -100.\\n"
+        "The bot must be an administrator with Post Messages permission.\\n"
+        "Send /cancel to stop.",
+        reply_markup=ForceReply(selective=True))
+
+@bot.on_message(filters.private & filters.text & ~filters.command(['requestpanel','requestsettings','setrequestchannel']), group=-4)
+async def request_channel_input(_, msg):
+    if not msg.from_user or msg.from_user.id not in REQUEST_CHANNEL_PENDING:
+        return
+    uid = msg.from_user.id
+    value = (msg.text or '').strip()
+    if value == '/cancel':
+        REQUEST_CHANNEL_PENDING.discard(uid)
+        await msg.reply_text("Channel setup cancelled.")
+        raise StopPropagation
+    try:
+        channel_id = int(value)
+        if not str(channel_id).startswith('-100'):
+            raise ValueError
+    except ValueError:
+        await msg.reply_text("Invalid channel ID. Send a number starting with -100, or /cancel.")
+        raise StopPropagation
+    try:
+        await configure_request_channel(channel_id)
+    except Exception as exc:
+        log.exception("Request channel setup failed for %s", channel_id)
+        await msg.reply_text(f"❌ Could not configure channel: {type(exc).__name__}: {exc}")
+        raise StopPropagation
+    REQUEST_CHANNEL_PENDING.discard(uid)
+    await msg.reply_text(f"✅ Request channel configured: {channel_id}",
+                         reply_markup=request_channel_panel(channel_id))
+    raise StopPropagation
+
+@bot.on_message(filters.command('setrequestchannel') & filters.private, group=-4)
 async def set_movie_request_channel(_, msg):
     if not msg.from_user or msg.from_user.id != OWNER_ID:
-        return await msg.reply_text("Owner only.")
+        await msg.reply_text("Owner only.")
+        raise StopPropagation
     try:
         channel_id = int(msg.command[1])
-        if channel_id >= 0:
+        if not str(channel_id).startswith('-100'):
             raise ValueError
     except (IndexError, ValueError):
-        return await msg.reply_text("Usage: /setrequestchannel -1001234567890")
+        await msg.reply_text("Usage: /setrequestchannel -1001234567890\\nOr use /requestpanel")
+        raise StopPropagation
     try:
-        me = await bot.get_me()
-        member = await bot.get_chat_member(channel_id, me.id)
-        if 'administrator' not in str(member.status).lower() and 'owner' not in str(member.status).lower():
-            return await msg.reply_text("Make the bot a channel administrator first.")
-        await bot.send_message(channel_id, "🎬 Movie request management enabled.")
-    except Exception:
-        log.exception("Request channel verification failed")
-        return await msg.reply_text("Cannot post to that channel. Add the bot as admin first.")
-    await smart_search.set_request_channel(db, channel_id)
-    await msg.reply_text(f"✅ Movie request channel set: {channel_id}")
+        await configure_request_channel(channel_id)
+    except Exception as exc:
+        log.exception("Request channel verification failed for %s", channel_id)
+        await msg.reply_text(f"❌ Cannot configure channel: {type(exc).__name__}: {exc}")
+        raise StopPropagation
+    await msg.reply_text(f"✅ Movie request channel set: {channel_id}",
+                         reply_markup=request_channel_panel(channel_id))
+    raise StopPropagation
 
 @bot.on_callback_query(filters.regex(r'^mr:(check|uploaded|pending|incorrect):\d+$'))
 async def manage_movie_request(_, q):
